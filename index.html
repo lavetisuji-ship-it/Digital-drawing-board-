@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>pro-drawing login</title>
+
+<style>
+body {
+  margin:0;
+  font-family: Arial;
+}
+
+/* LOGIN */
+#loginPage {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: url("https://images.unsplash.com/photo-1513364776144-60967b0f800f") center/cover no-repeat;
+}
+
+.login-box {
+  background: yellow;
+  padding: 25px;
+  border-radius: 14px;
+  width: 90%;
+  max-width: 320px;
+  text-align: center;
+}
+
+input {
+  width:100%;
+  padding:12px;
+  margin:8px 0;
+  border-radius:8px;
+  border:1px solid #ccc;
+}
+
+/* BOARD */
+#boardPage {
+  display: none;
+}
+
+/* TOOLBAR */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  background: linear-gradient(135deg, #111827, #1f2937);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+/* BUTTON */
+button, select {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 25px;
+  background: linear-gradient(135deg, #6a11cb, #2575fc);
+  color:white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+button:hover, select:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+
+/* CANVAS */
+canvas {
+  border: 2px solid #333;
+  touch-action: none;
+  background: white;
+}
+
+/* 🔔 NOTIFICATION PANEL STYLES */
+.noti-wrapper {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 9999;
+}
+
+.bell-btn {
+  font-size: 20px;
+  border-radius: 12px;
+  position: relative;
+  padding: 8px 12px;
+}
+
+#badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: red;
+  color: white;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 50%;
+}
+
+.noti-panel {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 45px;
+  width: 240px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.noti-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px;
+  background: #eee;
+  font-weight: bold;
+}
+
+.noti-item {
+  padding: 8px;
+  border-top: 1px solid #eee;
+}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="loginPage">
+  <div class="login-box">
+    <h2>🎨Drawing Login</h2>
+    <input id="user" placeholder="Username">
+    <input id="pass" type="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+  </div>
+</div>
+
+<!-- BOARD -->
+<div id="boardPage">
+
+<!-- 🔔 NOTIFICATION PANEL -->
+<div class="noti-wrapper">
+  <button class="bell-btn" onclick="toggleNotifications()">
+    🔔
+    <span id="badge">3</span>
+  </button>
+
+  <div id="notificationPanel" class="noti-panel">
+    <div class="noti-header">
+      Notifications
+      <button onclick="clearNotifications()">Clear</button>
+    </div>
+
+    <div class="noti-item">🖊️ Welcome to Drawing Board</div>
+    <div class="noti-item">📁 Tools loaded successfully</div>
+    <div class="noti-item">💾 Auto features enabled</div>
+  </div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <input type="color" id="color" value="#000000">
+  <input type="range" id="size" min="1" max="20" value="3">
+
+  <button onclick="setTool('pen')">✏️ Pen</button>
+  <button onclick="setTool('eraser')">🧽 Eraser</button>
+
+  <select onchange="setTool(this.value)">
+    <option value="pen">Shapes</option>
+    <option value="line">Line</option>
+    <option value="rect">Rectangle</option>
+    <option value="circle">Circle</option>
+  </select>
+
+  <button onclick="clearCanvas()">Clear</button>
+  <button onclick="logout()">Logout</button>
+</div>
+
+<canvas id="board"></canvas>
+
+</div>
+
+<script>
+
+let canvas = document.getElementById("board");
+let ctx = canvas.getContext("2d");
+
+let tool = "pen";
+let drawing = false;
+
+let startX = 0;
+let startY = 0;
+
+let snapshot = null;
+
+/* LOGIN */
+function login() {
+  if (user.value === "admin" && pass.value === "1234") {
+    loginPage.style.display = "none";
+    boardPage.style.display = "block";
+    resize();
+  }
+}
+
+/* RESIZE */
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight - 70;
+}
+window.addEventListener("resize", resize);
+
+/* TOOL */
+function setTool(t) {
+  tool = t;
+}
+
+/* POSITION */
+function pos(e) {
+  let x = e.touches ? e.touches[0].clientX : e.clientX;
+  let y = e.touches ? e.touches[0].clientY : e.clientY;
+  return {x, y};
+}
+
+/* DRAWING */
+canvas.addEventListener("mousedown", startDraw);
+canvas.addEventListener("touchstart", startDraw);
+
+function startDraw(e) {
+  drawing = true;
+
+  let p = pos(e);
+  startX = p.x;
+  startY = p.y;
+
+  snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  ctx.beginPath();
+}
+
+canvas.addEventListener("mousemove", draw);
+canvas.addEventListener("touchmove", draw);
+
+function draw(e) {
+  if (!drawing) return;
+
+  let p = pos(e);
+
+  ctx.lineWidth = size.value;
+  ctx.strokeStyle = color.value;
+
+  if (tool === "pen") {
+    ctx.lineCap = "round";
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }
+
+  else if (tool === "eraser") {
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }
+
+  else {
+    ctx.putImageData(snapshot, 0, 0);
+
+    if (tool === "line") {
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    }
+
+    else if (tool === "rect") {
+      ctx.strokeRect(startX, startY, p.x - startX, p.y - startY);
+    }
+
+    else if (tool === "circle") {
+      let r = Math.sqrt((p.x-startX)**2 + (p.y-startY)**2);
+      ctx.beginPath();
+      ctx.arc(startX, startY, r, 0, Math.PI*2);
+      ctx.stroke();
+    }
+  }
+}
+
+canvas.addEventListener("mouseup", stopDraw);
+canvas.addEventListener("touchend", stopDraw);
+
+function stopDraw() {
+  drawing = false;
+  ctx.beginPath();
+}
+
+/* CLEAR */
+function clearCanvas() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+
+/* LOGOUT */
+function logout() {
+  location.reload();
+}
+
+/* 🔔 NOTIFICATION FUNCTIONS */
+function toggleNotifications() {
+  let panel = document.getElementById("notificationPanel");
+  panel.style.display = panel.style.display === "block" ? "none" : "block";
+}
+
+document.addEventListener("click", function(e) {
+  let panel = document.getElementById("notificationPanel");
+  let bell = document.querySelector(".bell-btn");
+
+  if (!bell.contains(e.target) && !panel.contains(e.target)) {
+    panel.style.display = "none";
+  }
+});
+
+function clearNotifications() {
+  document.getElementById("notificationPanel").innerHTML =
+    "<div class='noti-item'>No notifications</div>";
+  document.getElementById("badge").style.display = "none";
+}
+
+</script>
+
+</body>
+</html>
